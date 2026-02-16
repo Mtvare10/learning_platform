@@ -1,0 +1,35 @@
+<!-- app/templates/login.html -->
+<div class="bg-gray-800 p-8 rounded-lg w-96">
+    <h2 class="text-white text-2xl mb-6">Login</h2>
+    <div class="space-y-4">
+        <input id="username" type="text" placeholder="Username" class="w-full p-2 rounded bg-gray-700 text-white">
+        <input id="password" type="password" placeholder="Password" class="w-full p-2 rounded bg-gray-700 text-white">
+        <button onclick="handleLogin()" class="w-full bg-green-600 text-white py-2 rounded">Login</button>
+    </div>
+</div>
+
+<script>
+async function handleLogin() {
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+
+    // FastAPI OAuth2 expects form-data, not JSON
+    const formData = new FormData();
+    formData.append('username', user);
+    formData.append('password', pass);
+
+    const response = await fetch('/users/login', { // Matches your tokenUrl
+        method: 'POST',
+        body: formData
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+        // Save the JWT token exactly as your backend expects it
+        localStorage.setItem('token', data.access_token); 
+        window.location.href = '/dashboard'; // Redirect to AI Agent
+    } else {
+        alert("Login failed! Check your credentials.");
+    }
+}
+</script>

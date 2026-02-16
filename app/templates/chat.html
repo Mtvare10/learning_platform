@@ -1,0 +1,32 @@
+<!-- app/templates/dashboard.html -->
+<div id="chat-box" class="p-6 h-96 overflow-y-auto bg-gray-900"></div>
+<input id="topic" type="text" class="p-2 w-full bg-gray-700 text-white" placeholder="Ask AI...">
+<button onclick="askAI()" class="bg-blue-600 p-2 mt-2 w-full">Ask Tutor</button>
+
+<script>
+async function askAI() {
+    const topic = document.getElementById('topic').value;
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+
+    const response = await fetch('/ai/ask', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // This matches your backend OAuth2 scheme
+        },
+        body: JSON.stringify({ topic: topic })
+    });
+
+    const data = await response.json();
+    if (response.status === 403) {
+        alert("Permission Denied: " + data.detail);
+    } else {
+        document.getElementById('chat-box').innerHTML += `<p>AI: ${data.result}</p>`;
+    }
+}
+</script>

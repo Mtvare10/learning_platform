@@ -5,3 +5,5 @@ typing
 bcrypt==4.3.0
 pyjwt
 uvicorn
+langchain_core
+langchain_google_genai
