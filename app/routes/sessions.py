@@ -5,7 +5,7 @@ from .. import models, schemas, database
 from ..dependencies import get_current_user, require_role
 from typing import List
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+router = APIRouter()
 
 
 # ----------------------------

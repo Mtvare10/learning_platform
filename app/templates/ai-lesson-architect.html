@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Lesson Architect</title>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --bg: #111827;
+            --card-bg: #1f2937;
+            --input-bg: #111827;
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --success: #10b981;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.5;
+        }
+
+        .creator-container { 
+            max-width: 850px; 
+            margin: 0 auto; 
+            background: var(--card-bg); 
+            padding: 32px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+        }
+
+        h2 { 
+            margin-top: 0; 
+            font-size: 1.8rem; 
+            color: #fff;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .full-width { grid-column: span 2; }
+
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            color: var(--text-muted); 
+            font-size: 0.85rem; 
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        input, textarea, select { 
+            width: 100%; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border); 
+            background: var(--input-bg); 
+            color: white; 
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus, textarea:focus, select:focus { 
+            border-color: var(--primary); 
+            outline: none; 
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); 
+        }
+
+        .btn-ai { 
+            background: var(--primary); 
+            color: white; 
+            padding: 14px 28px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: 700; 
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .btn-ai:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-ai:active { transform: translateY(0); }
+
+        .btn-save {
+            background: var(--success);
+            margin-top: 20px;
+        }
+
+        #loading-msg { 
+            text-align: center; 
+            margin-top: 20px; 
+            padding: 10px;
+            background: rgba(251, 191, 36, 0.1);
+            border-radius: 8px;
+            color: #fbbf24;
+            font-weight: bold;
+        }
+
+        hr { margin: 40px 0; border: 0; border-top: 1px solid var(--border); }
+
+        #result-area { 
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .editor-label { color: var(--success); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="creator-container">
+    <h2>✨ AI Lesson Architect</h2>
+    
+    <div class="form-grid">
+        <div>
+            <label>Lesson Topic</label>
+            <input type="text" id="topic" placeholder="e.g. Python Functions">
+        </div>
+        <div>
+            <label>Course ID</label>
+            <input type="number" id="course_id" placeholder="Enter Course ID">
+        </div>
+
+        <div class="full-width">
+            <label>Target Audience</label>
+            <input type="text" id="audience" placeholder="e.g. 11th Grade Computer Science Students">
+        </div>
+
+        <div class="full-width">
+            <label>Key Learning Objectives</label>
+            <textarea id="objectives" rows="3" placeholder="Define parameters, explain return values, provide code examples..."></textarea>
+        </div>
+
+        <div class="full-width">
+            <label>Style & Tone</label>
+            <select id="tone">
+                <option value="academic">Academic & In-depth</option>
+                <option value="storytelling">Storytelling & Narrative</option>
+                <option value="simple">Simple & Beginner-Friendly</option>
+                <option value="coding-heavy">Coding-Heavy & Practical</option>
+            </select>
+        </div>
+    </div>
+
+    <button class="btn-ai" id="gen-btn" onclick="generateLesson()">Assemble Lesson with Gemini</button>
+    
+    <div id="loading-msg" style="display:none;">
+        🪄 Gemini is crafting your curriculum...
+    </div>
+
+    <div id="result-area" style="display: none;">
+        <hr>
+        <h3 class="editor-label">Step 2: Review & Edit Draft</h3>
+        
+        <label>Final Published Title</label>
+        <input type="text" id="final-title">
+        
+        <label>Lesson Content (Markdown Supported)</label>
+        <textarea id="ai-content" style="height: 400px; font-family: 'Consolas', monospace;"></textarea>
+        
+        <button class="btn-ai btn-save" onclick="saveLesson()">Save & Publish to Classroom</button>
+    </div>
+</div>
+
+<script>
+    // Automatically grab course_id from URL if coming from the Courses page
+    const urlParams = new URLSearchParams(window.location.search);
+    const courseIdFromUrl = urlParams.get('course_id');
+    if (courseIdFromUrl) {
+        document.getElementById('course_id').value = courseIdFromUrl;
+    }
+
+    async function generateLesson() {
+        const topic = document.getElementById('topic').value;
+        const courseId = document.getElementById('course_id').value; // FIXED ID
+        const audience = document.getElementById('audience').value || "students";
+        const objectives = document.getElementById('objectives').value || "general overview";
+        const tone = document.getElementById('tone').value;
+        const loading = document.getElementById('loading-msg');
+        
+        if (!topic || !courseId) return alert("Topic and Course ID are required!"); // FIXED VARIABLE
+
+        const finalPrompt = `Create a comprehensive lesson about ${topic}. 
+        Target Audience: ${audience}. 
+        Key Learning Objectives: ${objectives}. 
+        Writing Style: ${tone}. 
+        Please use Markdown for headers, bold text, and code blocks.`;
+
+        loading.style.display = 'block';
+        document.getElementById('result-area').style.display = 'none';
+
+        try {
+            const response = await fetch("/lessons/generate-content-only", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + localStorage.getItem("token")
+                },
+                body: JSON.stringify({ prompt: finalPrompt })
+            });
+
+            const data = await response.json();
+            loading.style.display = 'none';
+
+            if (response.ok) {
+                document.getElementById('result-area').style.display = 'block';
+                document.getElementById('final-title').value = topic;
+                document.getElementById('ai-content').value = data.content;
+                window.scrollTo({ top: document.getElementById('result-area').offsetTop, behavior: 'smooth' });
+            } else {
+                alert("Generation failed: " + (data.detail || "Unknown error"));
+            }
+        } catch (err) {
+            loading.style.display = 'none';
+            alert("Connection error: Could not reach the AI agent.");
+        }
+    }
+
+    async function saveLesson() {
+        const payload = {
+            title: document.getElementById('final-title').value,
+            content: document.getElementById('ai-content').value,
+            course_id: parseInt(document.getElementById('course_id').value) // FIXED KEY
+        };
+
+        try {
+            const response = await fetch("/lessons/", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + localStorage.getItem("token")
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert("Lesson published successfully!");
+                // Redirect back to the Course Space instead of the dashboard
+                const cId = document.getElementById('course_id').value;
+                window.location.href = `/courses-page?course_id=${cId}`;
+            } else {
+                const errorData = await response.json();
+                alert("Save failed: " + JSON.stringify(errorData.detail));
+            }
+        } catch (error) {
+            alert("Network error: Could not save the lesson.");
+        }
+    }
+</script>
+</body>
+</html>

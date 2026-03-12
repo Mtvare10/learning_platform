@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Builder</title>
+    <style>
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .header-section { border-bottom: 2px solid #f1f5f9; margin-bottom: 30px; padding-bottom: 20px; }
+        .btn { padding: 12px 20px; cursor: pointer; border-radius: 8px; border: none; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #6366f1; color: white; }
+        .btn-ai { background: #10b981; color: white; }
+        .btn-secondary { background: #f1f5f9; color: #475569; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        
+        .management-box { background: #fdf2f8; border: 1px solid #fbcfe8; padding: 25px; border-radius: 12px; margin-bottom: 30px; }
+        .action-row { display: flex; gap: 15px; margin-top: 15px; }
+        .input-group { flex-grow: 1; position: relative; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; box-sizing: border-box; }
+        
+        .lesson-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
+        .lesson-card { background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .lesson-info { display: flex; align-items: center; gap: 12px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-section">
+        <button class="btn btn-secondary" onclick="goBackToClassroom()">← Back to Classroom</button>
+        <h1 id="course-title" style="margin-top: 20px;">Course Management</h1>
+    </div>
+
+    <div class="management-box">
+        <h3 style="margin-top: 0; color: #be185d;">🛠️ Content Builder</h3>
+        <p>Create a lesson outline manually, or use the <strong>AI Architect</strong> to generate a full lesson with one click.</p>
+        
+        <div class="action-row">
+            <div class="input-group">
+                <input type="text" id="lesson-title-input" placeholder="Enter lesson title (e.g., Intro to Python Variables)">
+            </div>
+            <button class="btn btn-primary" onclick="createNewLesson()">Save Draft</button>
+            <button class="btn btn-ai" id="ai-architect-btn">✨ AI Architect</button>
+        </div>
+    </div>
+
+    <div id="lessons-section">
+        <h2 style="font-size: 1.25rem;">Curriculum Outline</h2>
+        <div id="lessons-container" class="lesson-grid">
+            </div>
+    </div>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const classroomId = urlParams.get('classroom_id');
+    const courseId = urlParams.get('course_id');
+    const token = localStorage.getItem("token");
+
+    async function init() {
+        if (!token || !courseId) {
+            window.location.href = "/login";
+            return;
+        }
+
+        // Set up the AI Architect button to carry the course ID
+        document.getElementById('ai-architect-btn').onclick = () => {
+            window.location.href = `/ai-lesson-architect?course_id=${courseId}`;
+        };
+
+        await loadCourseData();
+    }
+
+    async function loadCourseData() {
+        const container = document.getElementById('lessons-container');
+        try {
+            const response = await fetch(`/courses/${courseId}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const course = await response.json();
+            
+            document.getElementById('course-title').innerText = `Course: ${course.title}`;
+
+            if (course.lessons && course.lessons.length > 0) {
+                container.innerHTML = course.lessons.map(lesson => `
+                    <div class="lesson-card">
+                        <div class="lesson-info">
+                            <span style="font-size: 1.2rem;">🚀</span>
+                            <div>
+                                <strong style="display: block;">${lesson.title}</strong>
+                                <small style="color: #64748b;">${lesson.content ? 'Content generated' : 'Empty draft'}</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="viewLesson(${lesson.id})">Edit / View</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `<p style="text-align: center; color: #94a3b8; padding: 40px; border: 2px dashed #e2e8f0; border-radius: 12px;">Your curriculum is empty. Start by adding a lesson above.</p>`;
+            }
+        } catch (err) {
+            console.error("Failed to load course:", err);
+        }
+    }
+
+    async function createNewLesson() {
+        const titleInput = document.getElementById('lesson-title-input');
+        const title = titleInput.value;
+        if (!title) return alert("Please enter a title for your lesson draft.");
+
+        try {
+            const response = await fetch(`/lessons/`, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` 
+                },
+                body: JSON.stringify({ 
+                    title: title, 
+                    course_id: parseInt(course_id),
+                    content: "" // Created as an empty draft for the AI to fill later
+                })
+            });
+
+            if (response.ok) {
+                titleInput.value = "";
+                await loadCourseData(); // Refresh the list
+            } else {
+                const err = await response.json();
+                alert("Error: " + (err.detail || "Could not save lesson."));
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function goBackToClassroom() {
+        window.location.href = `/classroom-detail-page?id=${classroomId}`;
+    }
+
+    function viewLesson(id) {
+        window.location.href = `/lesson-view?lesson_id=${id}`;
+    }
+
+    init();
+</script>
+</body>
+</html>

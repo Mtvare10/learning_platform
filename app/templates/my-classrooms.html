@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Classrooms</title>
+    <style>
+        body { font-family: Arial; background-color: #f4f4f4; text-align: center; padding: 40px; }
+        .classroom-container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .classroom-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px; border-bottom: 1px solid #eee; transition: 0.2s;
+        }
+        .classroom-item:hover { background-color: #f9fafb; }
+        .class-info { text-align: left; }
+        .id-badge { background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .view-btn { background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>My Classrooms</h1>
+    <div class="classroom-container" id="list-container">
+        <p>Loading your classrooms...</p>
+    </div>
+
+    <script>
+        const token = localStorage.getItem("token");
+
+        async function fetchClassrooms() {
+            const response = await fetch("/classrooms/", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const classrooms = await response.json();
+            const container = document.getElementById("list-container");
+
+            if (classrooms.length === 0) {
+                container.innerHTML = "<p>You haven't created any classrooms yet.</p>";
+                return;
+            }
+
+            container.innerHTML = classrooms.map(c => `
+                <div class="classroom-item">
+                    <div class="class-info">
+                        <strong>${c.name}</strong>
+                        <span class="id-badge">ID: ${c.id}</span>
+                    </div>
+                    <button class="view-btn" onclick="window.location.href='/classroom-detail-page?id=${c.id}'">
+                        View Lessons
+                    </button>
+                </div>
+            `).join('');
+        }
+        fetchClassrooms();
+    </script>
+</body>
+</html>

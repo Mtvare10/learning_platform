@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from .. import models, schemas, database
 from ..dependencies import require_role, get_current_user
+from typing import List
 
 
 
-router = APIRouter(prefix="/classrooms", tags=["classrooms"])
+router = APIRouter()
 
-@router.post("/classrooms", response_model=schemas.Classroom)
+@router.post("/", response_model=schemas.Classroom)
 def create_classroom(classroom_data: schemas.ClassroomCreate,
                      db: Session = Depends(database.get_db),
                      instructor: models.User = Depends(require_role("instructor"))):
@@ -59,3 +60,43 @@ def assign_student_to_classroom(
         db.commit()
 
     return {"message": f"Student {student.username} assigned to classroom {classroom.name}"}
+
+@router.get("/", response_model=List[schemas.Classroom])
+def get_classrooms(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if any(role.name == "instructor" for role in current_user.roles):
+        return db.query(models.Classroom).filter(
+            models.Classroom.instructor_id == current_user.id
+        ).all()
+    else:
+        return current_user.enrolled_classrooms
+    
+@router.get("/enrolled", response_model=List[schemas.Classroom])
+def get_enrolled_classrooms(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # This returns classrooms where the student is in the 'students' list
+    return current_user.enrolled_classrooms
+    
+@router.get("/{classroom_id}", response_model=schemas.Classroom)
+def get_classroom_detail(
+    classroom_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user) # Changed from require_role
+):
+    classroom = db.query(models.Classroom).options(joinedload(models.Classroom.courses).joinedload(models.Course.lessons)
+    ).filter(models.Classroom.id == classroom_id).first()
+    if not classroom:
+        raise HTTPException(status_code=404, detail="classroom not found")
+    is_instructor = classroom.instructor_id == current_user.id
+    is_enrolled = current_user in classroom.students
+    # Fetch the classroom AND verify the instructor owns it
+    
+
+    if not (is_instructor or is_enrolled):
+        raise HTTPException(status_code=403, detail="you do not have access to this classroom!")
+
+    return classroom

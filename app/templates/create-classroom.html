@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create New Classroom</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #111827; color: white; padding: 50px; }
+        .form-container { max-width: 500px; margin: auto; background: #1f2937; padding: 30px; border-radius: 12px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: none; background: #374151; color: white; }
+        .btn-create { background: #10b981; color: white; width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>New Classroom</h1>
+        <p>Give your new classroom a name to get started.</p>
+        <input type="text" id="classroom-name" placeholder="e.g., Physics 101 - Morning Section">
+        <button class="btn-create" onclick="submitClassroom()">Create Classroom</button>
+    </div>
+
+    <script>
+        async function submitClassroom() {
+            const name = document.getElementById('classroom-name').value;
+            const token = localStorage.getItem("token");
+
+            if (!name) return alert("Please enter a name");
+
+            const response = await fetch("/classrooms/", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` 
+                },
+                body: JSON.stringify({ name: name })
+            });
+
+            if (response.ok) {
+                alert("Classroom created successfully!");
+                window.location.href = "/dashboard"; // Go back to see the list
+            } else {
+                const err = await response.json();
+                alert("Error: " + (err.detail || "Could not create classroom"));
+            }
+        }
+    </script>
+</body>
+</html>

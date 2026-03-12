@@ -45,7 +45,7 @@ class Classroom(Base):
     instructor_id = Column(Integer, ForeignKey("users.id"))
     instructor = relationship("User", back_populates="classrooms")
     students = relationship("User", secondary="classroom_students", back_populates="enrolled_classrooms")
-    lessons = relationship("Lesson", back_populates="classroom")
+    courses = relationship("Course", back_populates="classroom", cascade="all, delete-orphan")
 
 class Lesson(Base):
     __tablename__ = "lessons"
@@ -53,10 +53,10 @@ class Lesson(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     content = Column(String)
-    classroom_id = Column(Integer, ForeignKey("classrooms.id"))
-
-    classroom = relationship("Classroom", back_populates="lessons")
-    sessions = relationship("Session", back_populates="lesson")
+    course_id = Column(Integer, ForeignKey("courses.id")) # Link to Course
+    
+    course = relationship("Course", back_populates="lessons")
+    sessions = relationship("Session", back_populates="lesson", cascade="all, delete-orphan")
 
 
 class Session(Base):
@@ -68,3 +68,20 @@ class Session(Base):
     is_active = Column(Boolean, default=True)
 
     lesson = relationship("Lesson", back_populates="sessions")
+
+class JoinRequest(Base):
+    __tablename__ = "join_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"))
+    instructor_id = Column(Integer, ForeignKey("users.id"))
+    status = Column(String, default="pending")
+    student = relationship("User", foreign_keys=[student_id])
+
+class Course(Base):
+    __tablename__ = "courses"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    classroom_id = Column(Integer, ForeignKey("classrooms.id"))
+    
+    classroom = relationship("Classroom", back_populates="courses")
+    lessons = relationship("Lesson", back_populates="course", cascade="all, delete-orphan")

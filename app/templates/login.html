@@ -1,0 +1,60 @@
+<!-- app/templates/login.html -->
+<div class="bg-gray-800 p-8 rounded-lg w-96">
+    <h2 class="text-white text-2xl mb-6">Login</h2>
+    <div class="space-y-4">
+        <input id="username" type="text" placeholder="Username" class="w-full p-2 rounded bg-gray-700 text-white">
+        <input id="password" type="password" placeholder="Password" class="w-full p-2 rounded bg-gray-700 text-white">
+        <button onclick="handleLogin()" class="w-full bg-green-600 text-white py-2 rounded">Login</button>
+    </div>
+</div>
+
+<script>
+async function handleLogin() {
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+
+    // FastAPI OAuth2 expects form-data, not JSON
+    const params = new URLSearchParams();
+    params.append('username', user);
+    params.append('password', pass);
+
+    const response = await fetch('/users/login', {
+        method: 'POST',
+        headers: { 
+            "Content-Type": "application/x-www-form-urlencoded" 
+        },
+        body: params.toString() // Send as encoded string
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+        const token = data.access_token;
+
+        // 1. Double check we actually have a token string
+        if (!token) {
+            console.error("No token received from backend");
+            return;
+        }
+
+        // 2. Save to localStorage
+        localStorage.setItem('token', token); 
+        
+        // 3. Save to Cookie with VERY specific formatting
+        // We use path=/ so it's visible to /dashboard
+        // We use SameSite=Lax for local development
+        const cookieString = `access_token=${token}; path=/; SameSite=Lax; max-age=3600;`;
+        document.cookie = cookieString;
+
+        console.log("Token saved. Verifying cookie...");
+        console.log("All current cookies:", document.cookie);
+
+        // 4. Redirect
+        window.location.href = '/dashboard'; 
+    }
+    else {
+        const errorData = await response.json();
+        console.error("Login Error:", errorData);
+        alert("Login failed! Check your credentials.");
+    }
+}
+</script>

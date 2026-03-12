@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas, database
 from ..dependencies import require_role, get_current_user
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter()
 
 
 @router.post("/bootstrap-admin", response_model=schemas.Role)

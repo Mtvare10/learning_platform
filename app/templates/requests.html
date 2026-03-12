@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Join Requests</title>
+    <style>
+        body { font-family: Arial; background-color: #f4f4f4; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .request-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .student-info { font-size: 18px; }
+        .actions button { padding: 8px 15px; cursor: pointer; border: none; border-radius: 5px; margin-left: 10px; }
+        .accept-btn { background-color: #22c55e; color: white; }
+        .decline-btn { background-color: #ef4444; color: white; }
+        .back-btn { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #0ea5e9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+    <h1>Pending Student Requests</h1>
+    <div id="requests-list">Loading requests...</div>
+</div>
+
+<script>
+    const token = localStorage.getItem("token");
+
+    async function loadRequests() {
+        try {
+            // This API should return requests for the logged-in instructor
+            const response = await fetch("/users/my-requests", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const requests = await response.json();
+            const listDiv = document.getElementById("requests-list");
+
+            if (requests.length === 0) {
+                listDiv.innerHTML = "<p>No pending requests found.</p>";
+                return;
+            }
+
+            listDiv.innerHTML = requests.map(req => `
+                <div class="request-item">
+                    <div class="student-info">
+                        <strong>${req.student.username}</strong> (ID: ${req.student_id})
+                    </div>
+                    <div class="actions">
+                        <button class="accept-btn" onclick="handleRequest(${req.id}, 'accept')">Accept</button>
+                        <button class="decline-btn" onclick="handleRequest(${req.id}, 'decline')">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error("Error:", error);
+            document.getElementById("requests-list").innerText = "Failed to load requests.";
+        }
+    }
+
+    async function handleRequest(requestId, action) {
+        if (action === 'decline') {
+            alert("Decline logic can be added here.");
+            return;
+        }
+
+        const classroomId = prompt("Enter the Classroom ID to assign this student to:");
+        if (!classroomId) return;
+
+        try {
+            const response = await fetch(`/users/requests/${requestId}/accept?classroom_id=${classroomId}`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                alert("Student successfully assigned to classroom!");
+                loadRequests(); // Refresh the list
+            } else {
+                const err = await response.json();
+                alert("Error: " + err.detail);
+            }
+        } catch (error) {
+            alert("Connection error.");
+        }
+    }
+
+    loadRequests();
+</script>
+
+</body>
+</html>

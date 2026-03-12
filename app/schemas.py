@@ -1,5 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 from datetime import datetime
+from typing import List, Optional
 
 
 class RoleBase(BaseModel):
@@ -24,9 +25,34 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    role: str
 
 
 
+class LessonCreate(BaseModel):
+    title: str
+    content: str | None = None
+    course_id: int
+
+class Lesson(BaseModel):
+    id: int
+    title: str
+    content: str
+    course_id: int
+    class Config:
+        from_attributes = True
+
+class CourseCreate(BaseModel):
+    title: str
+    classroom_id: int
+
+class Course(BaseModel):
+    id: int
+    title: str
+    classroom_id: int
+    lessons: List[Lesson] = []
+    class Config:
+        from_attributes = True
 
 
 class ClassroomCreate(BaseModel):
@@ -36,27 +62,16 @@ class Classroom(BaseModel):
     id: int
     name: str
     instructor_id: int
+    courses: List[Course] = []
 
     class Config:
         from_attributes = True
 
-class LessonBase(BaseModel):
-    title: str
-    content: str | None = None
-    classroom_id: int
+class AIQuestionRequest(BaseModel):
+    lesson_id: int
+    question: str
 
-    class Config:
-        from_attributes = True
 
-class LessonCreate(BaseModel):
-    title: str
-    content: str | None = None
-    classroom_id: int
-
-class Lesson(LessonBase):
-    id: int
-    class Config:
-        from_attributes = True
 
 class Session(BaseModel):
     id: int
@@ -79,7 +94,33 @@ class User(BaseModel):
     id: int
     username: str
     email: EmailStr
-    items: list[Lesson] = []
     roles: list[Role] = [] 
+    @computed_field
+    @property
+    def role(self) -> str:
+        # If the user has roles, return the name of the first one
+        # Otherwise, default to "student"
+        return self.roles[0].name if self.roles else "student"
+
     class Config:
         from_attributes = True
+  
+
+
+
+
+class JoinRequestSchema(BaseModel):
+    id: int
+    student_id: int
+    instructor_id: int
+    status: str
+    student: User # This allows req.student.username to work in JS
+
+    class Config:
+        from_attributes = True
+
+class ContentGenerationRequest(BaseModel):
+    prompt: str
+
+class ContentGenerationResponse(BaseModel):
+    content: str

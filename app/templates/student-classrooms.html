@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Enrolled Courses</title>
+    <style>
+        body { font-family: Arial; background: #f4f4f4; padding: 40px; text-align: center; }
+        .course-card { 
+            background: white; padding: 20px; border-radius: 10px; 
+            margin: 10px auto; max-width: 500px; display: flex; 
+            justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .view-btn { background: #0ea5e9; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>My Enrolled Classrooms</h1>
+    <div id="course-list">Loading your courses...</div>
+
+    <script>
+        const token = localStorage.getItem("token");
+
+        async function loadEnrolledCourses() {
+            const response = await fetch("/classrooms/enrolled", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const courses = await response.json();
+            const listDiv = document.getElementById("course-list");
+
+            if (courses.length === 0) {
+                listDiv.innerHTML = "<p>You haven't been assigned to any classrooms yet.</p>";
+                return;
+            }
+
+            listDiv.innerHTML = courses.map(c => `
+                <div class="course-card">
+                    <span><strong>${c.name}</strong></span>
+                    <button class="view-btn" onclick="window.location.href='/classroom-detail-page?id=${c.id}'">View Lessons</button>
+                </div>
+            `).join('');
+        }
+        loadEnrolledCourses();
+    </script>
+</body>
+</html>

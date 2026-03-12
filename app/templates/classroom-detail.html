@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Details</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f4; padding: 40px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .course-card { 
+            background: white; margin-bottom: 30px; padding: 25px; 
+            border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left;
+        }
+        .lesson-list { margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .lesson-item { 
+            padding: 12px; background: #f9fafb; margin-bottom: 8px; 
+            border-radius: 6px; cursor: pointer; transition: background 0.2s;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .lesson-item:hover { background: #f0f2f5; }
+        .btn { 
+            padding: 10px 20px; cursor: pointer; border-radius: 6px; border: none; 
+            background: #8b5cf6; color: white; font-weight: bold;
+        }
+        .btn:hover { background: #7c3aed; }
+        .btn-back { margin-bottom: 20px; cursor: pointer; color: #0ea5e9; border: none; background: none; font-size: 16px; display: block; }
+        .hidden { display: none; }
+        .instructor-panel {
+            margin-bottom: 30px; background: #e0f2fe; padding: 20px; 
+            border-radius: 12px; border: 1px dashed #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn-back" onclick="window.location.href='/my-classrooms-page'">← Back to My Classrooms</button>
+        
+        <h1 id="classroom-name">Loading...</h1>
+
+        <div id="instructor-toolbox" class="hidden">
+            <div class="instructor-panel">
+                <h3>🛠️ Instructor Toolbox</h3>
+                <p>Create a new course for this classroom:</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="new-course-title" placeholder="Course Name (e.g. Module 1: Basics)" style="flex-grow: 1; padding: 12px; border-radius: 8px; border: 1px solid #bae6fd;">
+                    <button class="btn" style="background: #0ea5e9;" onclick="createNewCourse()">Create Course</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="course-container">
+            </div>
+        
+        <p id="loading-msg" style="text-align:center;">Fetching curriculum...</p>
+    </div>
+
+    <script>
+        const token = localStorage.getItem("token");
+const urlParams = new URLSearchParams(window.location.search);
+// Use 'id' because your URL is ?id=2
+const classId = urlParams.get('id'); 
+
+async function loadDetails() {
+    
+    if (!token || !classId) {
+        window.location.href = "/login";
+        return;
+    }
+
+    try {
+        const [userRes, classRes] = await Promise.all([
+            fetch("/users/me", { headers: { "Authorization": `Bearer ${token}` } }),
+            fetch(`/classrooms/${classId}`, { headers: { "Authorization": `Bearer ${token}` } })
+        ]);
+
+        const user = await userRes.json();
+        const classroom = await classRes.json();
+
+        // 1. Identify Role
+        const userRole = user.role || (user.roles && user.roles.length > 0 ? user.roles[0].name : 'student');
+        const isInstructor = userRole === 'instructor';
+
+        // 2. Handle UI Elements
+        document.getElementById("classroom-name").innerText = classroom.name;
+        document.getElementById("loading-msg").classList.add("hidden");
+
+        if (isInstructor) {
+            document.getElementById('instructor-toolbox').classList.remove('hidden');
+        }
+
+        // 3. Render Courses (FIXED: Declared only once)
+        const courseContainer = document.getElementById("course-container");
+        
+        if (classroom.courses && classroom.courses.length > 0) {
+            courseContainer.innerHTML = classroom.courses.map(course => `
+                <div class="course-card">
+                    <h2>📚 ${course.title}</h2>
+                    <div class="lesson-list">
+                        ${course.lessons && course.lessons.length > 0 ? 
+                            course.lessons.map(lesson => `
+                                <div class="lesson-item" onclick="viewFullLesson(${lesson.id})">
+                                    <span>📄 ${lesson.title}</span>
+                                    <small style="color: #666;">Read →</small>
+                                </div>
+                            `).join('') : '<p style="color: #999;">No lessons yet.</p>'
+                        }
+                    </div>
+                    ${isInstructor ? `
+                        <button class="btn" style="margin-top:15px; background:#6366f1;" onclick="goToCourseSpace(${course.id})">
+                            ⚙️ Manage Course Space
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('');
+        } else {
+            courseContainer.innerHTML = "<p style='text-align:center;'>This classroom is currently empty.</p>";
+        }
+
+    } catch (err) {
+        console.error("Load error:", err);
+        document.getElementById("classroom-name").innerText = "Error loading classroom.";
+    }
+}
+
+async function createNewCourse() {
+    const titleInput = document.getElementById('new-course-title');
+    const title = titleInput.value;
+
+    if (!title) return alert("Please name your course.");
+
+    try {
+        // We use the base /courses/ endpoint
+        const response = await fetch(`/courses/`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json", 
+                "Authorization": `Bearer ${token}` 
+            },
+            body: JSON.stringify({ 
+                title: title, 
+                classroom_id: parseInt(classId) 
+            })
+        });
+
+        if (response.ok) {
+            const newCourse = await response.json();
+            // Success! Redirect
+            window.location.href = `/courses-page?course_id=${newCourse.id}&classroom_id=${classId}`;
+        } else {
+            const errorData = await response.json();
+            console.error("Server says:", errorData);
+            alert("Error: " + (errorData.detail || "Only the instructor can create courses."));
+        }
+    } catch (err) {
+        console.error("Create error:", err);
+        alert("Network error. Is the server running?");
+    }
+}
+
+function goToCourseSpace(courseId) {
+    window.location.href = `/courses-page?course_id=${courseId}&classroom_id=${classId}`;
+}
+
+function viewFullLesson(id) {
+    window.location.href = `/lesson-view?lesson_id=${id}`;
+}
+        // Initialize
+        loadDetails();
+    </script>
+</body>
+</html>

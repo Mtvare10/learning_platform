@@ -1,0 +1,45 @@
+<form id="register-form" class="space-y-4">
+    <input id="username" type="text" placeholder="Username" class="w-full p-2 bg-gray-700 rounded" required>
+    <input id="email" type="email" placeholder="Email" class="w-full p-2 bg-gray-700 rounded" required>
+    <input id="password" type="password" placeholder="Password" class="w-full p-2 bg-gray-700 rounded" required>
+    <select id="role" class="w-full p-2 bg-gray-700 rounded text-white" required>
+        <option value="student">Student</option>
+        <option value="instructor">Instructor</option>
+    </select>
+    <button type="submit" class="w-full bg-blue-600 py-2 rounded">Register</button>
+</form>
+
+<script>
+document.getElementById("register-form").addEventListener("submit", async function(e) {
+    e.preventDefault(); // stop default form submission
+
+    const data = {
+        username: document.getElementById("username").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        role: document.getElementById("role").value
+    };
+
+    try {
+        const response = await fetch("/users/", { // your FastAPI endpoint
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data) // send as JSON
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert("Error: " + JSON.stringify(result));
+        } else {
+            alert("Registration successful!");
+            window.location.href = "/login"; // redirect after registration
+        }
+    } catch (error) {
+        console.error(error);
+        alert("An error occurred during registration.");
+    }
+});
+</script>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Lesson</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 40px; background: #f9f9f9; }
+        .content-container { max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #0ea5e9; text-decoration: none; font-weight: bold; cursor: pointer; }
+        h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .lesson-body { font-size: 1.1em; color: #444; white-space: pre-wrap; margin-top: 20px; }
+        .error-text { color: #ef4444; font-weight: bold; }
+        .ai-tutor-floater {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            border: 1px solid #e2e8f0;
+        }
+
+        .ai-tutor-header {
+            background: #10b981;
+            color: white;
+            padding: 12px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+
+        .chat-box {
+            height: 250px;
+            overflow-y: auto;
+            padding: 15px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            gap: 5px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+
+        .chat-input-area button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .reopen-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #10b981;
+            color: white;
+            border-radius: 50px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+
+        .hidden { display: none; }
+
+        /* Message Styles */
+        .msg { margin-bottom: 10px; padding: 8px; border-radius: 8px; }
+        .user-msg { background: #f1f5f9; text-align: right; }
+        .ai-msg { background: #ecfdf5; border-left: 3px solid #10b981; }
+    </style>
+</head>
+<body>
+    <div class="content-container">
+        <a id="back-btn" class="back-link">← Back</a>
+        
+        <h1 id="lesson-title">Loading...</h1>
+        <div id="lesson-content" class="lesson-body">Please wait while we fetch your lesson...</div>
+    </div>
+
+    <div id="ai-tutor-container" class="ai-tutor-floater">
+        <div class="ai-tutor-header">
+            <span>🤖 Lesson Assistant</span>
+            <button onclick="toggleTutor()" style="background:none; border:none; color:white; cursor:pointer;">✖</button>
+        </div>
+        <div id="chat-history" class="chat-box">
+            <p style="color: #64748b; font-size: 0.85rem;">Ask me anything about this lesson!</p>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="tutor-question" placeholder="Type a question..." onkeypress="handleEnter(event)">
+            <button onclick="askTutor()">Ask</button>
+        </div>
+    </div>
+
+    <button id="reopen-tutor" class="reopen-btn hidden" onclick="toggleTutor()">🤖 Ask AI</button>
+
+
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const lessonId = urlParams.get('lesson_id');
+        const token = localStorage.getItem("token");
+
+        // Back button logic
+        document.getElementById('back-btn').onclick = () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = "/my-classrooms-page";
+            }
+        };
+
+        async function loadLesson() {
+            if (!token) {
+                window.location.href = "/login";
+                return;
+            }
+
+            if (!lessonId) {
+                document.getElementById('lesson-content').innerHTML = "<span class='error-text'>Error: No Lesson ID provided in URL.</span>";
+                return;
+            }
+
+            try {
+                const response = await fetch(`/lessons/${lessonId}`, {
+                    method: "GET",
+                    headers: { 
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    const lesson = await response.json();
+                    
+                    document.getElementById('lesson-title').innerText = lesson.title;
+                    
+                    // Display content or placeholder
+                    if (lesson.content && lesson.content.trim() !== "") {
+                        document.getElementById('lesson-content').innerText = lesson.content;
+                    } else {
+                        document.getElementById('lesson-content').innerHTML = "<i>This lesson has no content yet. Use the AI Architect to generate material!</i>";
+                    }
+
+                } else {
+                    const err = await response.json();
+                    document.getElementById('lesson-title').innerText = "Access Denied";
+                    document.getElementById('lesson-content').innerHTML = `<span class='error-text'>${err.detail || "Unable to fetch lesson."}</span>`;
+                }
+            } catch (err) {
+                // This now catches REAL network errors (server down) instead of JS typos
+                console.error("Fetch error:", err);
+                document.getElementById('lesson-content').innerHTML = "<span class='error-text'>Network error: Could not connect to server. Check if FastAPI is running.</span>";
+            }
+        }
+
+        loadLesson();
+        function toggleTutor() {
+    document.getElementById('ai-tutor-container').classList.toggle('hidden');
+    document.getElementById('reopen-tutor').classList.toggle('hidden');
+}
+
+function handleEnter(e) {
+    if (e.key === 'Enter') askTutor();
+}
+
+async function askTutor() {
+    const input = document.getElementById('tutor-question');
+    const button = input.nextElementSibling; // Get the 'Ask' button
+    const history = document.getElementById('chat-history');
+    const question = input.value;
+
+    if (!question || button.disabled) return; // Prevent double-clicking
+    button.disabled = true;
+    button.innerText = "...";
+
+    // 1. Add User Message to UI
+    history.innerHTML += `<div class="msg user-msg"><b>You:</b> ${question}</div>`;
+    input.value = "";
+    history.scrollTop = history.scrollHeight;
+
+    // 2. Add "Thinking" indicator
+    const loadingId = "loading-" + Date.now();
+    history.innerHTML += `<div id="${loadingId}" class="msg ai-msg"><i>Tutor is thinking...</i></div>`;
+
+    try {
+        const response = await fetch("/ai/ask-tutor", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                // "Authorization": `Bearer ${localStorage.getItem("token")}`
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                question: question, 
+                //lesson_id: parseInt(new URLSearchParams(window.location.search).get('lesson_id'))
+                lesson_id: parseInt(lessonId)
+            })
+        });
+
+        const data = await response.json();
+        
+        // 3. Replace loading with AI response
+        document.getElementById(loadingId).innerHTML = `<b>Tutor:</b> ${data.answer}`;
+        history.scrollTop = history.scrollHeight;
+
+    } catch (err) {
+        document.getElementById(loadingId).innerText = "Error connecting to AI.";
+    } finally {
+        button.disabled = false;
+        button.innerText = "Ask";
+        history.scrollTop = history.scrollHeight;
+    }
+}
+    </script>
+</body>
+</html>

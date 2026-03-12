@@ -4,84 +4,83 @@ from .. import models, schemas, database
 from ..dependencies import require_role, get_current_user
 from typing import List
 
+router = APIRouter()
 
-router = APIRouter(prefix="/lessons", tags=["lessons"])
+# 1. FIXED AI CONTENT GENERATION
+@router.post("/generate-content-only", response_model=schemas.ContentGenerationResponse)
+async def generate_ai_content(
+    data: schemas.ContentGenerationRequest,
+    instructor: models.User = Depends(require_role("instructor"))
+):
+    try:
+        # Safer way to get the role name
+        role_name = instructor.roles[0].name if instructor.roles else "instructor"
+        
+        # This assumes your agent is imported correctly
+        from app.agent import get_tutor_response 
+        ai_draft = get_tutor_response(data.prompt, role_name)
+        
+        return {"content": ai_draft}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
 
+# 2. FIXED LESSON CREATION (The source of your AttributeError)
 @router.post("/", response_model=schemas.Lesson)
-def create_lesson(lesson_data: schemas.LessonCreate,
-                  db: Session = Depends(database.get_db),
-                  instructor: models.User = Depends(require_role("instructor"))):
-    """
-    Only users with the instructor role can create lessons.
-    """
-    # Check that the instructor owns the classroom where the lesson will be created
-    classroom = db.query(models.Classroom).filter(models.Classroom.id == lesson_data.classroom_id).first()
-    if not classroom:
-        raise HTTPException(status_code=404, detail="Classroom not found")
+def create_lesson(
+    lesson_data: schemas.LessonCreate,
+    db: Session = Depends(database.get_db),
+    instructor: models.User = Depends(require_role("instructor"))
+):
+    # Fetch the COURSE that this lesson belongs to
+    course = db.query(models.Course).filter(models.Course.id == lesson_data.course_id).first()
+    
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
 
-    if classroom.instructor_id != instructor.id:
-        raise HTTPException(status_code=403, detail="You are not the instructor for this classroom")
+    # Security Check: Does this instructor own the classroom that owns this course?
+    if course.classroom.instructor_id != instructor.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to add lessons to this course")
 
+    # Save the lesson using course_id
     new_lesson = models.Lesson(
         title=lesson_data.title,
-        content=lesson_data.content,
-        classroom_id=lesson_data.classroom_id
+        content=lesson_data.content or "New Lesson Content",
+        course_id=lesson_data.course_id  # FIXED: Match your schema attribute
     )
+    
     db.add(new_lesson)
     db.commit()
     db.refresh(new_lesson)
 
     return new_lesson
 
-
+# 3. FIXED PERMISSIONS FOR VIEWING
 @router.get("/{lesson_id}", response_model=schemas.Lesson)
 def read_lesson(lesson_id: int, 
                 db: Session = Depends(database.get_db),
-                student: models.User = Depends(get_current_user)):
-    """
-    Students can view a lesson only if they are enrolled in the classroom.
-    Instructors can view any lesson they created.
-    """
+                current_user: models.User = Depends(get_current_user)):
+    
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    # Admins can always access
-    if any(role.name.lower() == "admin" for role in student.roles):
+    # Check roles
+    user_roles = [r.name.lower() for r in current_user.roles]
+
+    # Admins or the Instructor who owns the classroom
+    if "admin" in user_roles:
         return lesson
-
-    # Instructors can access lessons they created
-    if any(role.name.lower() == "instructor" for role in student.roles):
-        if lesson.classroom.instructor_id == student.id:
+        
+    if "instructor" in user_roles:
+        if lesson.course.classroom.instructor_id == current_user.id:
             return lesson
-        else:
-            raise HTTPException(status_code=403, detail="Not your lesson")
+        raise HTTPException(status_code=403, detail="Not your lesson")
 
-    # Students can access lessons only if enrolled in the classroom
-    if any(role.name.lower() == "student" for role in student.roles):
-        if lesson.classroom in student.enrolled_classrooms:
+    # Students must be enrolled in the classroom that owns the course
+    if "student" in user_roles:
+        classroom = lesson.course.classroom
+        if classroom in current_user.enrolled_classrooms:
             return lesson
-        else:
-            raise HTTPException(status_code=403, detail="You are not enrolled in this classroom")
+        raise HTTPException(status_code=403, detail="Not enrolled in this classroom")
 
     raise HTTPException(status_code=403, detail="Insufficient permissions")
-
-@router.get("/", response_model=List[schemas.Lesson])
-def get_lessons(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
-    """
-    Get all lessons a user can access:
-    - Students: only lessons of classrooms they are enrolled in
-    - Instructors: only lessons of classrooms they own
-    """
-    if any(role.name == "instructor" for role in current_user.roles):
-        # Instructor sees lessons of classrooms they own
-        lessons = db.query(models.Lesson).join(models.Classroom).filter(
-            models.Classroom.instructor_id == current_user.id
-        ).all()
-    else:
-        # Student sees lessons only in enrolled classrooms
-        lessons = db.query(models.Lesson).join(models.Classroom).join(models.Classroom.students).filter(
-            models.User.id == current_user.id
-        ).all()
-
-    return lessons
